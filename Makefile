@@ -103,6 +103,13 @@ all:parser
 	@${CPLUS} -MD ${INC} ${COPT}  -c cb/rawdump.cpp -o .objs/rawdump.o
 	@mv .objs/rawdump.d .deps
 
+.objs/simplerawdump.o : cb/simplerawdump.cpp
+	@echo c++ -- cb/simplerawdump.cpp
+	@mkdir -p .deps
+	@mkdir -p .objs
+	@${CPLUS} -MD ${INC} ${COPT}  -c cb/simplerawdump.cpp -o .objs/simplerawdump.o
+	@mv .objs/simplerawdump.d .deps
+
 .objs/rewards.o : cb/rewards.cpp
 	@echo c++ -- cb/rewards.cpp
 	@mkdir -p .deps
@@ -277,6 +284,7 @@ OBJS=                       \
     .objs/help.o            \
     .objs/pristine.o        \
     .objs/rawdump.o         \
+    .objs/simplerawdump.o   \
     .objs/rewards.o         \
     .objs/simpleStats.o     \
     .objs/sql.o             \
