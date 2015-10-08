@@ -1,5 +1,15 @@
 
-// Full dump of the blockchain
+// Full dump of the blockchain in bitcointools format
+
+// # what should dump all transactions look like??
+//for each tx we have
+//in\t[txhash]\tcoinbase\t[datetime] OR
+//listof
+//in\t[txhash]\t[prev_txhash]\t[prevout_n]\t[public_key]\t[datetime]
+//then
+//for index=0 to number of out in txout
+//out\t[txhash]\t[index]\t[publickey]\t[value/1.0e8]\t[datetime]
+
 
 #include <util.h>
 #include <strings.h>
@@ -7,7 +17,7 @@
 
 struct SimpleRawDump:public Callback {
 
-    FILE *txFile;
+    FILE *outFile;
     uint64_t txId;
     bool isCoinBase;
     uint32_t inputId;
@@ -15,19 +25,21 @@ struct SimpleRawDump:public Callback {
     uint32_t currBlock;
     uint32_t txVersion;
     uint32_t txIdInBlock;
-    uint32_t indentLevel;
-    uint8_t spaces[1024];
+ //   uint32_t indentLevel;
+//    uint8_t spaces[1024];
     optparse::OptionParser parser;
-
-    //std::unordered_map<const uint8_t, int> hash_to_id;
+    char datetime_str_buffer [30];
+    char transaction_hash_buffer [64];
+    //uint8_t *currentTXhash;
+    //uint8_t* currentTxHashbuf;
     
     SimpleRawDump() {
 
         txId = 0;
         currBlock = 0;
-        indentLevel = 0;
-        memset(spaces, ' ' , sizeof(spaces));
-        spaces[0] = 0;
+       // indentLevel = 0;
+      ///  memset(spaces, ' ' , sizeof(spaces));
+        //spaces[0] = 0;
 
         parser
             .usage("")
@@ -42,27 +54,27 @@ struct SimpleRawDump:public Callback {
     virtual bool                         needTXHash() const    { return true;       }
 
     
-    /*virtual int init(
+    virtual int init(
         int argc,
         const char *argv[]
     )
     {
 
         info("dumping the blockchain ...");
-
-        //txFile = fopen("transactions.txt", "w");
-        //if(!txFile) sysErrFatal("couldn't open file txs.txt for writing\n");
-
+        //currentTxHashbuf = (uint8_t*)alloca(2*kSHA256ByteSize + 1);
+        outFile = fopen("all-transactions.txt", "w");
+        if(!outFile)
+            sysErrFatal("couldn't open file txs.txt for writing\n");
 
         return 0;
-    } */   
+    } 
     
     // Called when the second parse of the full chain starts
     virtual void start(
         const Block *s,
         const Block *e
     ) {
-        printf("T1\tT2\tValue\tIn_Block\n");
+        info("second parse started");
     }
 
     // Called when a new block is encountered
@@ -77,17 +89,21 @@ struct SimpleRawDump:public Callback {
         if ((currBlock%10000) == 0)
             info("On block %d", currBlock);
         
-        /*
-        txIdInBlock = 0;
-        currBlock = b->height;
-
-        printf(
-            "block %d",
-            (int)(-1+b->height)
-        );
-        printf("\t");
-     
-        showHex(b->hash);*/
+        
+        
+        auto p = b->chunk->getData();
+        SKIP(uint32_t, version, p);
+        SKIP(uint256_t, prevBlkHash, p);
+        SKIP(uint256_t, blkMerkleRoot, p);
+        LOAD(uint32_t, blkTime, p);
+        
+        time_t blkTime_ = (time_t)blkTime;
+        struct tm * dt;
+        
+        dt = gmtime(&blkTime_);
+        strftime(datetime_str_buffer, sizeof(datetime_str_buffer), "%Y-%m-%d-%H-%M-%S", dt);
+        
+        
     }
 
     // Called when start list of TX is encountered
@@ -102,23 +118,21 @@ struct SimpleRawDump:public Callback {
         const uint8_t *p,
         const uint8_t *hash
     ) {
-/*
-        printf(
-            "%stx%d = {\n",
-            spaces,
-            txIdInBlock
-        );
-        */
+
 
         #if defined(CLAM)
             auto pBis = p;
             LOAD(uint32_t, nVersion, pBis);
             txVersion = nVersion;
         #endif
-/*
-        printf("%stxHash = '", spaces);*/
-        showHex(hash);printf("\t");
-        /*printf("'\n");*/
+        //showHex(hash);
+        //currentTXhash = hash;
+        //uint8_t* buf = (uint8_t*)alloca(2*kSHA256ByteSize + 1);
+        //toHex(currentTxHashbuf, hash, kSHA256ByteSize, true);
+        sShowHex(transaction_hash_buffer, hash);
+        //fprintf(f, "%s", buf);
+        
+
     }
 
     // Called when the start of a TX's input array is encountered
@@ -127,7 +141,6 @@ struct SimpleRawDump:public Callback {
     ) {
         inputId = 0;
         isCoinBase = false;
-       // printf("%sinputs = {\n", spaces);
         
     }
 
@@ -135,12 +148,6 @@ struct SimpleRawDump:public Callback {
     virtual void startInput(
         const uint8_t *p
     ) {
-    /*
-        printf(
-            "%sinput%d = {\n",
-            spaces,
-            (int)inputId
-        );*/
         
 
         static uint256_t gNullHash;
@@ -148,26 +155,26 @@ struct SimpleRawDump:public Callback {
         LOAD(uint32_t, upOutputIndex, p);
         LOAD_VARINT(inputScriptSize, p);
 
-    /*    printf("%sscript = '\n", spaces);
-            
-                showScript(p, inputScriptSize, 0, (const char *)spaces);
-            
-        printf("%s'\n", spaces);*/
-
         isCoinBase = (0==memcmp(gNullHash.v, upTXHash.v, sizeof(gNullHash)));
         if(isCoinBase) {
-            uint64_t value = getBaseReward(currBlock);
-            printf("COINBASE\t");
-            printf("%" PRIu64 "", value);
-            printf("\t%d\n", currBlock - 1);
-            //showHex(upTXHash); printf("\t");
-          //  printf("isCoinBase = true");
-            /*printf(
+            //uint64_t value = getBaseReward(currBlock);
+            fprintf(outFile, "in\t");
+            
+            fprintf(outFile, "%s\t", transaction_hash_buffer);
+            //fShowHex(outFile, currentTXhash); fprintf(outFile, "\t");
+            
+            fprintf(outFile, "coinbase\t");
+            fprintf(outFile, "%s\n", datetime_str_buffer);
+            //fprintf(outFile, "%" PRIu64 "", value);
+            //fprintf(outFile, "\t%d\n", currBlock - 1);
+            //fShowHex(outFile, upTXHash); fprintf(outFile, "\t");
+          //  fprintf(outFile, "isCoinBase = true");
+            /*fprintf(outFile, 
                 "value = %" PRIu64 " # %.08f\n",
                 value,
                 satoshisToNormaForm(value)
             );
-            printf("%scoinBase = '\n", spaces);
+            fprintf(outFile, "%scoinBase = '\n", spaces);
             
                 canonicalHexDump(
                     p,
@@ -175,7 +182,7 @@ struct SimpleRawDump:public Callback {
                     (const char *)spaces
                 );
             
-            printf("%s'\n", spaces);*/
+            fprintf(outFile, "%s'\n", spaces);*/
         }
     }
 
@@ -192,40 +199,34 @@ struct SimpleRawDump:public Callback {
         uint64_t      inputScriptSize       // Byte size of script carried by input in downstream transaction
     )
     {
-    showHex(upTXHash); printf("\t"); printf("%" PRIu64 "", value);
-    printf("\t%d\n", currBlock - 1);
-     /*   printf(
-            "%svalue = %" PRIu64 " # %.08f\n",
-            spaces,
-            value,
-            satoshisToNormaForm(value)
-        );
+    
+     uint8_t address[40];
+        address[0] = 'X';
+        address[1] = 0;
 
-        printf(
-            "%ssourceTXOutputIndex = %d\n",
-            spaces,
-            (int)outputIndex
-        );
+        uint8_t addrType[3];
+        uint160_t pubKeyHash;
+        int type = solveOutputScript(pubKeyHash.v, outputScript, outputScriptSize, addrType);
+        if(likely(0<=type)) hash160ToAddr(address, pubKeyHash.v);
 
-        printf(
-            "%ssourceTXHash = '",
-            spaces
-        );
-        showHex(upTXHash);
-        printf("'\n");*/
+    
+    fprintf(outFile, "in\t");
+    fShowHex(outFile, downTXHash); fprintf(outFile, "\t");
+    fShowHex(outFile, upTXHash); fprintf(outFile, "\t");
+    fprintf(outFile, "%" PRIu64 "\t", outputIndex);
+    
+    
+    fprintf(outFile, "%s\t", address);
+    //fprintf(outFile, "%" PRIu64 "\t", value); // not in bitcoin-tools output ... why???
+    fprintf(outFile, "%s\n", datetime_str_buffer);
+
+    
     }
 
     // Called when at the end of a TX input
     virtual void endInput(
         const uint8_t *p
     ) {
-       /* if(!isCoinBase) {
-            printf("%sisCoinBase = false\n", spaces);
-        }
-
-        
-        printf("%s}\n", spaces);
-        ++inputId;*/
     }
 
     // Called when the end of a TX's input array is encountered
@@ -233,7 +234,6 @@ struct SimpleRawDump:public Callback {
         const uint8_t *p
     ) {
         
-        //printf("%s}\n", spaces);
     }
 
     // Called when the start of a TX's output array is encountered
@@ -241,7 +241,6 @@ struct SimpleRawDump:public Callback {
         const uint8_t *p
     ) {
         outputId = 0;
-       // printf("%soutputs = {\n", spaces);
         
     }
 
@@ -249,11 +248,6 @@ struct SimpleRawDump:public Callback {
     virtual void startOutput(
         const uint8_t *p
     ) {
-       /* printf(
-            "%soutput%d = {\n",
-            spaces,
-            (int)outputId
-        );*/
         
     }
 
@@ -267,22 +261,22 @@ struct SimpleRawDump:public Callback {
         uint64_t      outputScriptSize      // Byte size of raw script
     )
     {
-   /*     printf(
-            "%svalue = %" PRIu64 " # %.08f\n",
-            spaces,
-            value,
-            satoshisToNormaForm(value)
-        );
+    //out\t[txhash]\t[index]\t[publickey]\t[value/1.0e8]\t[datetime]
+     uint8_t address[40];
+        address[0] = 'X';
+        address[1] = 0;
 
-        printf("%sscript = '\n", spaces);
-        showScript(outputScript, outputScriptSize, 0, (const char *)spaces);
-        printf("%s'\n", spaces);
-
-        showScriptInfo(outputScript, outputScriptSize, spaces);
-
-        
-        printf("%s}\n", spaces);
-        ++outputId;*/
+        uint8_t addrType[3];
+        uint160_t pubKeyHash;
+        int type = solveOutputScript(pubKeyHash.v, outputScript, outputScriptSize, addrType);
+        if(likely(0<=type)) hash160ToAddr(address, pubKeyHash.v);
+    fprintf(outFile, "out\t");
+    fShowHex(outFile, txHash);fprintf(outFile, "\t");
+    fprintf(outFile, "%" PRIu64 "\t", outputIndex);
+    fprintf(outFile, "%s\t", address);
+    fprintf(outFile, "%" PRIu64 "\t", value);
+    fprintf(outFile, "%s\n", datetime_str_buffer);
+    
     }
 
     // Called when the end of a TX's output array is encountered
@@ -292,7 +286,7 @@ struct SimpleRawDump:public Callback {
         #if defined(CLAM)
             if(1<txVersion) {
                 LOAD_VARINT(strCLAMSpeechLen, p);
-                printf("%stxComment = '\n", spaces);
+                fprintf(outFile, "%stxComment = '\n", spaces);
                     
                         canonicalHexDump(
                             p,
@@ -300,12 +294,12 @@ struct SimpleRawDump:public Callback {
                             (const char *)spaces
                         );
                     
-                printf("%s'\n", spaces);
+                fprintf(outFile, "%s'\n", spaces);
             }
         #endif
 
         
-        //printf("%s}\n", spaces);
+        //fprintf(outFile, "%s}\n", spaces);
     }
 
     // Called when an end of TX is encountered
@@ -313,7 +307,6 @@ struct SimpleRawDump:public Callback {
         const uint8_t *p
     ) {
         
-       // printf("%s}\n", spaces);
         ++txIdInBlock;
         ++txId;
     }
@@ -323,7 +316,6 @@ struct SimpleRawDump:public Callback {
         const uint8_t *p
     ) {
         
-      //  printf("%s}\n", spaces);
     }
 
     // Called when an end of block is encountered
@@ -331,13 +323,12 @@ struct SimpleRawDump:public Callback {
         const Block *b
     ) {
         
-      //  printf("%s}\n", spaces);
     }
 
     virtual void      startLC(                                     )       {               }  // Called when longest chain parse starts
     virtual void wrapup()
     {
-        //fclose(outputFile);
+        fclose(outFile);
         //fclose(inputFile);
         //fclose(blockFile);
         //fclose(txFile);
@@ -348,4 +339,6 @@ struct SimpleRawDump:public Callback {
 };
 
 static SimpleRawDump SimpleRawDump;
+
+
 

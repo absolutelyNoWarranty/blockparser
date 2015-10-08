@@ -75,6 +75,30 @@ void showHex(
     printf("%s", buf);
 }
 
+void fShowHex(
+    FILE *f,
+    const uint8_t *p,
+    size_t        size,
+    bool          rev
+)
+{
+    uint8_t* buf = (uint8_t*)alloca(2*size + 1);
+    toHex(buf, p, size, rev);
+    fprintf(f, "%s", buf);
+}
+
+void sShowHex(
+    char * str,
+    const uint8_t *p,
+    size_t        size,
+    bool          rev    
+)
+{
+    uint8_t* buf = (uint8_t*)alloca(2*size + 1);
+    toHex(buf, p, size, rev);
+    sprintf(str, "%s", buf);
+}
+
 uint8_t fromHexDigit(
     uint8_t h,
     bool abortOnErr

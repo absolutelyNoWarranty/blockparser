@@ -486,7 +486,6 @@ static void initCallback(
             argv[1][i++] = 'x';
         }
     }
-
     auto ir = gCallback->init(argc, (const char **)argv);
     if(ir<0) {
         errFatal("callback init failed");
@@ -790,17 +789,22 @@ static std::string getNormalizedDirName(
 
 static std::string getBlockchainDir() {
     auto dir = getenv("BLOCKCHAIN_DIR");
+    info("Block chain directory is : ");
+    info(dir);
     if(0==dir) {
         dir = getenv("HOME");
         if(0==dir) {
             errFatal("please  specify either env. variable HOME or BLOCKCHAIN_DIR");
         }
     }
+    return getNormalizedDirName(dir);
+    /*commented out because this assumes it's folder/.bitcoin/...
+    whereas I'm just /data/...
     return getNormalizedDirName(
         dir              +
         std::string("/") +
         kCoinDirName
-    );
+    );*/
 }
 
 static void makeBlockMaps() {

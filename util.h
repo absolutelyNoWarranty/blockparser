@@ -260,7 +260,21 @@
         size_t        size = kSHA256ByteSize,
         bool          rev = true
     );
+    
+    void fShowHex(
+        FILE *f,
+        const uint8_t *p,
+        size_t        size = kSHA256ByteSize,
+        bool          rev = true
+    );
+    void sShowHex(
+        char * str,
+        const uint8_t *p,
+        size_t        size = kSHA256ByteSize,
+        bool          rev = true   
+    );
 
+    
     uint8_t fromHexDigit(
         uint8_t h,
         bool abortOnErr = true
